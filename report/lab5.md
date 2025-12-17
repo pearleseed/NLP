@@ -169,11 +169,11 @@ Epoch 5/5, Loss: 0.0xxx
 
 | Tiêu chí | Baseline (BoW) | LSTM |
 |----------|----------------|------|
-| Thứ tự từ | ❌ Bỏ qua | ✅ Xử lý tuần tự |
-| Ngữ cảnh | ❌ Không | ✅ Hidden state |
-| Phủ định | ❌ Khó xử lý | ✅ Hiểu được |
-| Tốc độ | ✅ Nhanh | ❌ Chậm hơn |
-| Dữ liệu | ✅ Ít | ❌ Cần nhiều |
+| Thứ tự từ | Bỏ qua | Xử lý tuần tự |
+| Ngữ cảnh | Không | Hidden state |
+| Phủ định | Khó xử lý | Hiểu được |
+| Tốc độ | Nhanh | Chậm hơn |
+| Dữ liệu | Ít | Cần nhiều |
 
 ### 5.2. Ưu điểm LSTM
 - Xử lý tốt các phụ thuộc xa trong câu
