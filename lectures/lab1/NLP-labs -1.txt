@@ -1,0 +1,31 @@
+NLP labs
+L1: Lexical Analysis
+	1. Text Segmentation: INP: 1 text, OUT: 1 array of tokens 
+	2. Lemmatization
+	3. Part-of-speech tagging 
+L2: Syntactic Analysis
+L3: Semantic Analysis
+L4: Pragmatic Analysis
+
+Nội dung nêu tại dự thảo Nghị quyết về điều chỉnh mức giảm trừ gia cảnh của Ủy ban Thường vụ Quốc hội gửi Bộ Tư pháp thẩm định. Theo đó, Bộ Tài chính đề xuất trình phương án nâng mức giảm trừ gia cảnh cho người nộp thuế từ 11 triệu đồng mỗi tháng lên 15,5 triệu và người phụ thuộc từ 4,4 triệu lên 6,2 triệu đồng.
+
+Dự kiến, số thu ngân sách từ thuế thu nhập cá nhân còn khoảng 84.477 tỷ đồng, giảm 21.000 tỷ mỗi năm so với hiện hành. Số người còn phải nộp thuế là 2,21 triệu người, giảm 2,18 triệu người (49,66%) do chuyển từ bậc 1 sang diện không chịu thuế.
+
+Nepal’s economy is heavily reliant on money sent home by Nepalis living abroad. More than a third (33.1%) of Nepal’s GDP came from personal remittances, according to the World Bank, a number that has steadily risen over the past three decades.
+
+Nepal’s Home Minister Ramesh Lekhak resigned Monday following the violence, Communications Minister Prithvi Subba confirmed to reporters late Monday.
+
+Exo1: 
+	INPUT=Nepal’s Home Minister Ramesh Lekhak resigned Monday following the violence, Communications Minister Prithvi Subba confirmed to reporters late Monday.
+	OUTPUT=['Nepal', '’', 's', 'Home', 'Minister', 'Ramesh', 'Lekhak', 'resigned', 'Monday', 'following', 'the', 'violence', ',', 'Communications', 'Minister', 'Prithvi', 'Subba', 'confirmed', 'to', 'reporters', 'late', 'Monday', '.']
+
+Exo2: 
+	INPUT=Nepal’s Home Minister Ramesh Lekhak resigned Monday following the violence, Communications Minister Prithvi Subba confirmed to reporters late Monday.
+	OUTPUT=[Nepal, Home Minister Ramesh Lekkak, Monday, Communications Minister Prithvi Subba, Monday]
+	
+Exo3: 
+	INPUT=The police are firing indiscriminately,” one protester told Indian news agency ANI. At least 17 people were killed in Kathmandu and two more in the eastern city of Itahari, according to hospital officials. 
+	OUTPUT=[The, Indian, ANI, At, 17, Kathmandu, Itahari]
+	
+	INPUT=Dự kiến, số thu ngân sách từ thuế thu nhập cá nhân còn khoảng 84.477 tỷ đồng, giảm 21.000 tỷ mỗi năm so với hiện hành. Số người còn phải nộp thuế là 2,21 triệu người, giảm 2,18 triệu người (49,66%) do chuyển từ bậc 1 sang diện không chịu thuế.
+	OUTPUT=[Dự, 84.477, 21.000,  Số, "2,21", "2,18",  49,66%]
