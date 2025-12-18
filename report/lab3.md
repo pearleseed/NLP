@@ -15,19 +15,286 @@ Tìm hiểu và ứng dụng **Word Embeddings** - kỹ thuật biểu diễn t�
 
 ## 2. Nền tảng Lý thuyết
 
-### 2.1. Giả thuyết Phân bố (Distributional Hypothesis)
-> "Những từ xuất hiện trong cùng ngữ cảnh có xu hướng mang ý nghĩa tương đồng."
+### 2.1. Từ Sparse sang Dense Representations
 
-### 2.2. Word2Vec
-- **CBOW**: Dự đoán từ đích từ ngữ cảnh. Nhanh, tốt với dữ liệu lớn.
-- **Skip-gram**: Dự đoán ngữ cảnh từ từ đích. Tốt với từ hiếm.
-- **Hạn chế**: Mô hình tĩnh - mỗi từ chỉ có 1 vector bất kể ngữ cảnh.
+#### 2.1.1. Vấn đề của One-hot và BoW
+Các phương pháp truyền thống (One-hot, BoW, TF-IDF) tạo ra **sparse vectors**:
 
-### 2.3. GloVe
-Kết hợp thống kê toàn cục (ma trận đồng xuất hiện) với phương pháp dự đoán.
+```
+Vocabulary: [cat, dog, king, queen, man, woman] (6 từ)
 
-### 2.4. FastText
-Biểu diễn từ bằng n-gram ký tự → xử lý được từ OOV.
+One-hot encoding:
+cat   = [1, 0, 0, 0, 0, 0]
+dog   = [0, 1, 0, 0, 0, 0]
+king  = [0, 0, 1, 0, 0, 0]
+queen = [0, 0, 0, 1, 0, 0]
+```
+
+**Nhược điểm:**
+- **Không có semantic similarity**: cos(king, queen) = 0, dù có quan hệ ngữ nghĩa
+- **Curse of dimensionality**: Vocabulary 100K từ → vector 100K chiều
+- **Không generalize**: Mỗi từ là một chiều độc lập
+
+#### 2.1.2. Dense Word Embeddings
+Word Embeddings biểu diễn từ bằng **dense vectors** với số chiều nhỏ (50-300):
+
+```
+king  = [0.50, 0.68, -0.59, 0.02, 0.60, ...]  (50-300 chiều)
+queen = [0.45, 0.72, -0.55, 0.08, 0.58, ...]
+```
+
+**Ưu điểm:**
+- Capture được semantic similarity
+- Số chiều cố định, không phụ thuộc vocabulary size
+- Có thể học được các quan hệ ngữ nghĩa (analogy)
+
+### 2.2. Distributional Hypothesis - Nền tảng lý thuyết
+
+#### 2.2.1. Phát biểu
+> "You shall know a word by the company it keeps" - J.R. Firth (1957)
+> 
+> "Những từ xuất hiện trong ngữ cảnh tương tự có xu hướng mang ý nghĩa tương đồng."
+
+#### 2.2.2. Ví dụ minh họa
+```
+"The ___ sat on the mat."
+"The ___ chased the mouse."
+"I fed my ___ some milk."
+
+→ Các từ "cat", "dog", "kitten" có thể điền vào chỗ trống
+→ Chúng có ngữ cảnh tương tự → có nghĩa liên quan
+```
+
+#### 2.2.3. Co-occurrence Matrix
+Đếm số lần các từ xuất hiện cùng nhau trong một window:
+
+```
+Corpus: "I like deep learning. I like NLP. I enjoy flying."
+Window size = 1 (chỉ xét từ liền kề)
+
+         I  like  deep  learning  NLP  enjoy  flying
+I        0    3     0      0       0     1      0
+like     3    0     1      1       1     0      0
+deep     0    1     0      1       0     0      0
+learning 0    1     1      0       0     0      0
+NLP      0    1     0      0       0     0      0
+enjoy    1    0     0      0       0     0      1
+flying   0    0     0      0       0     1      0
+```
+
+### 2.3. Word2Vec - Chi tiết thuật toán
+
+#### 2.3.1. Kiến trúc tổng quan
+Word2Vec (Mikolov et al., 2013) có 2 kiến trúc:
+
+```
+CBOW (Continuous Bag of Words):
+Context words → [Average] → Hidden Layer → Target word
+"The cat ___ on mat" → predict "sat"
+
+Skip-gram:
+Target word → Hidden Layer → Context words
+"sat" → predict ["The", "cat", "on", "mat"]
+```
+
+#### 2.3.2. Skip-gram - Công thức chi tiết
+
+**Mục tiêu:** Maximize xác suất của context words cho target word.
+
+**Objective function:**
+```
+J(θ) = (1/T) Σₜ Σ_{-c≤j≤c, j≠0} log P(wₜ₊ⱼ | wₜ)
+```
+
+Trong đó:
+- `T`: Tổng số từ trong corpus
+- `c`: Window size (context size)
+- `wₜ`: Target word tại vị trí t
+- `wₜ₊ⱼ`: Context word
+
+**Softmax probability:**
+```
+P(wₒ | wᵢ) = exp(vₒ'ᵀ vᵢ) / Σ_{w∈V} exp(vᵥ'ᵀ vᵢ)
+```
+
+Trong đó:
+- `vᵢ`: Input vector của word i (target)
+- `vₒ'`: Output vector của word o (context)
+- `V`: Vocabulary
+
+**Vấn đề:** Softmax tính trên toàn bộ vocabulary rất tốn kém (|V| có thể > 100K)
+
+#### 2.3.3. Negative Sampling - Giải pháp tối ưu
+
+Thay vì tính softmax trên toàn bộ V, chỉ sample k negative examples:
+
+**Objective với Negative Sampling:**
+```
+log σ(vₒ'ᵀ vᵢ) + Σₖ 𝔼_{wₖ~Pₙ(w)} [log σ(-vₖ'ᵀ vᵢ)]
+```
+
+Trong đó:
+- `σ(x) = 1/(1 + e⁻ˣ)`: Sigmoid function
+- `Pₙ(w)`: Noise distribution (thường là unigram^0.75)
+- `k`: Số negative samples (thường 5-20)
+
+**Ý tưởng:**
+- Positive sample: (target, context) thực sự xuất hiện cùng nhau → maximize
+- Negative samples: (target, random_word) không xuất hiện cùng nhau → minimize
+
+#### 2.3.4. CBOW - Continuous Bag of Words
+
+**Mục tiêu:** Dự đoán target word từ context words.
+
+```
+Input: Average của context word vectors
+       h = (1/2c) Σ_{-c≤j≤c, j≠0} vₜ₊ⱼ
+
+Output: Softmax over vocabulary
+       P(wₜ | context) = softmax(Wₒᵀ h)
+```
+
+**So sánh CBOW vs Skip-gram:**
+
+| Tiêu chí | CBOW | Skip-gram |
+|----------|------|-----------|
+| Tốc độ training | Nhanh hơn | Chậm hơn |
+| Từ hiếm | Kém hơn | Tốt hơn |
+| Dataset nhỏ | Tốt hơn | Kém hơn |
+| Syntactic tasks | Tốt hơn | Tương đương |
+| Semantic tasks | Tương đương | Tốt hơn |
+
+### 2.4. GloVe - Global Vectors
+
+#### 2.4.1. Ý tưởng chính
+GloVe (Pennington et al., 2014) kết hợp:
+- **Matrix factorization** (như LSA): Sử dụng thống kê toàn cục
+- **Local context window** (như Word2Vec): Học từ ngữ cảnh cục bộ
+
+#### 2.4.2. Co-occurrence Probability Ratio
+
+**Quan sát quan trọng:**
+```
+Xét các từ: ice, steam, solid, gas, water
+
+P(solid | ice) / P(solid | steam) = large  (solid liên quan ice)
+P(gas | ice) / P(gas | steam) = small      (gas liên quan steam)
+P(water | ice) / P(water | steam) ≈ 1      (water liên quan cả hai)
+```
+
+→ Ratio của co-occurrence probabilities encode thông tin ngữ nghĩa
+
+#### 2.4.3. Objective Function
+
+```
+J = Σᵢⱼ f(Xᵢⱼ) (wᵢᵀ w̃ⱼ + bᵢ + b̃ⱼ - log Xᵢⱼ)²
+```
+
+Trong đó:
+- `Xᵢⱼ`: Co-occurrence count của word i và j
+- `wᵢ, w̃ⱼ`: Word vectors
+- `bᵢ, b̃ⱼ`: Bias terms
+- `f(x)`: Weighting function để giảm ảnh hưởng của từ quá phổ biến
+
+**Weighting function:**
+```
+f(x) = (x/xₘₐₓ)^α  if x < xₘₐₓ
+     = 1           otherwise
+
+(thường α = 0.75, xₘₐₓ = 100)
+```
+
+### 2.5. FastText - Subword Embeddings
+
+#### 2.5.1. Vấn đề OOV (Out-of-Vocabulary)
+Word2Vec và GloVe không xử lý được từ mới không có trong training data.
+
+#### 2.5.2. Giải pháp của FastText
+Biểu diễn từ bằng tổng của character n-grams:
+
+```
+word = "where", n = 3
+
+Character n-grams: <wh, whe, her, ere, re>
+(< và > là boundary markers)
+
+v("where") = v(<wh) + v(whe) + v(her) + v(ere) + v(re>) + v(<where>)
+```
+
+**Ưu điểm:**
+- Xử lý được OOV words
+- Capture được morphology (tiền tố, hậu tố)
+- Tốt cho ngôn ngữ có nhiều biến thể từ (tiếng Đức, tiếng Thổ Nhĩ Kỳ)
+
+### 2.6. Word Analogy - Kiểm chứng Embeddings
+
+#### 2.6.1. Analogy Task
+```
+"king" - "man" + "woman" ≈ "queen"
+
+v(king) - v(man) + v(woman) ≈ v(queen)
+```
+
+#### 2.6.2. Các loại Analogy
+
+| Loại | Ví dụ |
+|------|-------|
+| Gender | king:queen :: man:woman |
+| Plural | cat:cats :: dog:dogs |
+| Tense | walk:walked :: run:ran |
+| Country-Capital | France:Paris :: Japan:Tokyo |
+| Comparative | good:better :: bad:worse |
+
+#### 2.6.3. Giải thích toán học
+Analogy hoạt động vì word vectors encode các quan hệ như **linear offsets**:
+
+```
+v(king) - v(queen) ≈ v(man) - v(woman) ≈ v(male) - v(female)
+
+→ Có một "gender direction" trong embedding space
+```
+
+### 2.7. Cosine Similarity cho Word Embeddings
+
+#### 2.7.1. Công thức
+```
+similarity(A, B) = cos(θ) = (A · B) / (||A|| × ||B||)
+                 = Σᵢ(Aᵢ × Bᵢ) / (√Σᵢ(Aᵢ²) × √Σᵢ(Bᵢ²))
+```
+
+#### 2.7.2. Tại sao dùng Cosine?
+- Word vectors đã được normalize về cùng scale
+- Cosine đo góc giữa vectors, không phụ thuộc magnitude
+- Giá trị trong [-1, 1], dễ interpret
+
+### 2.8. Document Embedding từ Word Embeddings
+
+#### 2.8.1. Mean Pooling (Simple Average)
+```
+doc_vector = (1/n) Σᵢ v(wordᵢ)
+```
+
+**Ưu điểm:** Đơn giản, nhanh
+**Nhược điểm:** Mất thông tin thứ tự, từ quan trọng bị "pha loãng"
+
+#### 2.8.2. Weighted Average (TF-IDF weighted)
+```
+doc_vector = Σᵢ tfidf(wordᵢ) × v(wordᵢ) / Σᵢ tfidf(wordᵢ)
+```
+
+#### 2.8.3. Các phương pháp nâng cao
+- **Doc2Vec (Paragraph Vectors)**: Học document vector cùng với word vectors
+- **Sentence-BERT**: Dùng Transformer để tạo sentence embeddings
+
+### 2.9. Hạn chế của Static Word Embeddings
+
+| Hạn chế | Mô tả | Ví dụ |
+|---------|-------|-------|
+| Polysemy | Mỗi từ chỉ có 1 vector | "bank" (ngân hàng) = "bank" (bờ sông) |
+| Context-independent | Không thay đổi theo ngữ cảnh | "I love you" vs "Love is blind" |
+| Bias | Học bias từ training data | "doctor" gần "man", "nurse" gần "woman" |
+
+→ Các hạn chế này dẫn đến sự phát triển của **Contextualized Embeddings** (ELMo, BERT - Lab 6)
 
 ---
 

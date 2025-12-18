@@ -2,122 +2,86 @@
 
 ## 1. Mục tiêu
 
-Nghiên cứu tổng quan về **Text-to-Speech (TTS)** - công nghệ chuyển đổi văn bản thành giọng nói.
+Nghiên cứu toàn diện về công nghệ **Text-to-Speech (TTS)**, từ các khái niệm cơ bản về xử lý tín hiệu âm thanh đến các kiến trúc Generative AI tiên tiến nhất hiện nay. Báo cáo cung cấp cái nhìn sâu sắc về quy trình chuyển đổi văn bản thành giọng nói, so sánh các phương pháp tiếp cận và phân tích xu hướng tương lai.
 
-**Các nội dung thực hiện:**
-1. Tìm hiểu tổng quan về bài toán TTS và tình hình nghiên cứu
-2. Phân tích các phương pháp triển khai (3 Level)
-3. Đánh giá ưu/nhược điểm từng hướng tiếp cận
-4. Tìm hiểu các pipeline tối ưu hóa
+**Nội dung chính:**
+1.  Tổng quan về xử lý tín hiệu âm thanh trong TTS.
+2.  Phân tích kiến trúc Neural TTS hiện đại (Encoder - Decoder - Vocoder).
+3.  So sánh các chiến lược triển khai: Autoregressive vs. Non-autoregressive.
 
 ---
 
 ## 2. Nền tảng Lý thuyết
 
-### 2.1. Định nghĩa bài toán
-Text-to-Speech (TTS) là quá trình sử dụng máy tính để chuyển đổi văn bản đầu vào thành âm thanh tiếng nói con người. Mục tiêu cuối cùng là tạo ra giọng nói tự nhiên, truyền cảm và khó phân biệt với giọng người thật.
+### 2.1. Biểu diễn Tín hiệu Âm thanh
+Máy tính xử lý âm thanh thông qua các dạng biểu diễn số:
+*   **Waveform (Sóng âm)**: Dữ liệu thô (raw audio) biên độ theo thời gian. Chứa rất nhiều chiều (nghìn điểm dữ liệu/giây), khó mô hình hóa trực tiếp.
+*   **Mel-spectrogram**: Biểu diễn tần số theo thời gian, được nén theo thang đo Mel (mô phỏng thính giác người). Đây là biểu diễn trung gian tiêu chuẩn cho hầu hết các mô hình TTS hiện đại.
 
-### 2.2. Bối cảnh và Xu hướng nghiên cứu
-Trong kỷ nguyên AI và các Agent tự động, TTS đóng vai trò là "cổng giao tiếp" đầu ra quan trọng.
-
-**Xu hướng hiện tại:**
-- Chuyển từ "đọc rõ chữ" sang "đọc diễn cảm" với cảm xúc
-- Voice Cloning với dữ liệu mẫu cực ngắn (vài giây)
-
-**Thách thức chung:**
-| Thách thức | Mô tả |
-|------------|-------|
-| Tốc độ (Latency) | Phản hồi nhanh, Real-time |
-| Tài nguyên | Chạy trên Edge devices, giảm chi phí server |
-| Tính tự nhiên | Ngữ điệu (prosody), cảm xúc |
-| Đa ngôn ngữ | Cross-lingual (nói tiếng nước ngoài bằng giọng bản xứ) |
-
-### 2.3. Ba cấp độ phát triển TTS
-
-| Level | Phương pháp | Đặc điểm chính |
-|-------|-------------|----------------|
-| 1 | Rule-based / Concatenative | Ghép nối âm vị, nhanh, ít tự nhiên |
-| 2 | Deep Learning + Fine-tuning | Tự nhiên hơn, cần dữ liệu fine-tune |
-| 3 | Few-shot / Zero-shot (Generative AI) | Clone giọng từ vài giây, tốn tài nguyên |
+### 2.2. Ba Cấp độ Phát triển của TTS
+1.  **Level 1 - Concatenative**: Cắt ghép giọng thu âm sẵn. Nhanh nhưng thiếu tự nhiên.
+2.  **Level 2 - Neural Vectors**: Học mối quan hệ Text-to-Spectrogram (Tacotron, FastSpeech). Tự nhiên, mượt mà nhưng cần fine-tuning cho giọng mới.
+3.  **Level 3 - Generative / Zero-shot**: Coi TTS là bài toán Language Modeling với Audio Tokens (VALL-E). Có thể clone giọng bất kỳ chỉ từ vài giây mẫu.
 
 ---
 
-## 3. Phân tích các phương pháp triển khai
+## 3. Dataset (Dữ liệu Huấn luyện)
 
-### 3.1. Level 1: TTS dựa trên luật (Rule-based / Concatenative)
-Phương pháp truyền thống, ghép nối các đơn vị âm thanh nhỏ hoặc sử dụng luật vật lý.
+Các mô hình TTS hiện đại đòi hỏi lượng dữ liệu khổng lồ để đạt độ tự nhiên cao:
 
-| Ưu điểm | Nhược điểm |
-|---------|------------|
-| Hiệu suất cực cao, phản hồi tức thì | Thiếu tự nhiên, nghe như robot |
-| Tốn ít tài nguyên, chạy offline | Khó tùy biến giọng |
-| Dễ mở rộng đa ngôn ngữ | Ngắt nghỉ không đúng ngữ cảnh |
-| Kiểm soát tốt, không hallucination | |
-
-**Use Cases:** Thông báo công cộng (sân bay, nhà ga), thiết bị nhúng giá rẻ, Screen readers.
-
-### 3.2. Level 2: Deep Learning + Fine-tuning (Neural TTS)
-Mô hình học cách sinh ra phổ âm thanh (mel-spectrogram) từ văn bản (Tacotron, FastSpeech).
-
-| Ưu điểm | Nhược điểm |
-|---------|------------|
-| Tính tự nhiên cao, mượt mà | Cần dữ liệu ghi âm sạch để fine-tune |
-| Cá nhân hóa qua fine-tuning | Khó training đa ngôn ngữ |
-| Tài nguyên vừa phải, phù hợp deploy | |
-
-**Use Cases:** Trợ lý ảo (Siri, Google Assistant), Audiobooks, Call Center.
-
-### 3.3. Level 3: Few-shot / Zero-shot (Generative AI)
-Coi TTS như bài toán Language Modeling cho âm thanh (VALL-E, XTTS).
-
-| Ưu điểm | Nhược điểm |
-|---------|------------|
-| Chỉ cần vài giây ghi âm | Tốn GPU mạnh, latency cao |
-| Đa dạng cảm xúc & ngữ cảnh | Kém ổn định (lặp từ, bỏ từ) |
-| Cross-lingual | Rủi ro đạo đức (Deepfake) |
-
-**Use Cases:** Lồng tiếng phim, Content Creator, Podcast AI, Avatar ảo.
+*   **Dữ liệu Single-speaker (Cho Level 2)**: LJSpeech (24 giờ, 1 người đọc), đảm bảo sự nhất quán tối đa.
+*   **Dữ liệu Multi-speaker (Cho Level 3)**: LibriTTS (585 giờ, 2400 người đọc), VCTK.
+*   **Dữ liệu thô (In-the-wild)**: Common Voice, VoxCeleb. Dùng để huấn luyện khả năng zero-shot learning trên đa dạng điều kiện thu âm.
 
 ---
 
-## 4. Pipeline tối ưu hóa
+## 4. Pipeline Triển khai (Cài đặt)
 
-### 4.1. Tối ưu hiệu năng (Level 2 & 3 Hybrid)
-- **Distillation:** Dùng model lớn (Teacher) dạy model nhỏ (Student)
-- **Streaming Inference:** Sinh và phát âm thanh theo chunk để giảm latency
-- **Vocoder nhẹ:** HiFi-GAN chuyển phổ âm thành sóng âm nhanh
+Một hệ thống Neural TTS điển hình (Tacotron 2 / FastSpeech 2) gồm 3 module chính kết nối tuần tự:
 
-### 4.2. Đảm bảo đa dạng và cá nhân hóa (Level 2 cải tiến)
-- **Speaker Adaptation:** Fine-tune adapter layers thay vì toàn bộ model
-- **Phoneme Mapping:** Dùng IPA làm trung gian cho đa ngôn ngữ
+### 4.1. Text Frontend (Text Analysis)
+*   **Input**: Văn bản thô ("Hello world, it's 2024").
+*   **Xử lý**: Chuẩn hóa số, ngày tháng, viết tắt -> Chuyển sang chuỗi âm vị (Phonemes) dùng bảng IPA.
+*   **Output**: Chuỗi vector âm vị.
 
-### 4.3. Giải pháp đạo đức (Ethical Pipeline)
-- **Audio Watermarking:** Nhúng tín hiệu ẩn vào audio đầu ra
-  - Giúp nhận diện giọng AI vs giọng thật
-  - Ngăn chặn tin giả và voice phishing
+### 4.2. Acoustic Model (Mel Generator)
+*   **Nhiệm vụ**: Chuyển chuỗi âm vị thành Mel-spectrogram.
+*   **Chiến lược**:
+    *   *Autoregressive (Tacotron)*: Sinh tuần tự từng khung thời gian. Chất lượng cao nhưng chậm.
+    *   *Non-autoregressive (FastSpeech)*: Sinh song song toàn bộ phổ âm. Cực nhanh, phù hợp realtime.
 
----
-
-## 5. Nhận xét
-
-**Kết luận theo từng Level:**
-
-| Yêu cầu | Level phù hợp |
-|---------|---------------|
-| Tốc độ và ổn định tuyệt đối | Level 1 |
-| Cân bằng chất lượng và chi phí | Level 2 |
-| Trải nghiệm đột phá, sáng tạo | Level 3 |
-
-**Xu hướng tương lai:**
-- Level 3 là hướng đi tiên tiến nhất
-- Cần đi kèm biện pháp kiểm soát đạo đức (Watermarking)
-- Tối ưu hóa chi phí vận hành qua Distillation và Streaming
+### 4.3. Vocoder (Neural Vocoder)
+*   **Nhiệm vụ**: "Vẽ" lại sóng âm (Waveform) từ bản thiết kế (Mel-spectrogram).
+*   **Công nghệ**: HiFi-GAN (Generative Adversarial Networks) hiện là chuẩn mực vì tốc độ nhanh và chất lượng âm thanh trung thực, loại bỏ tiếng rè kim khí.
 
 ---
 
-## 6. Trích dẫn
-- Harito ID - more_research: https://harito.id.vn/
-- Tacotron: https://arxiv.org/abs/1703.10135
-- FastSpeech: https://arxiv.org/abs/1905.09263
-- VALL-E: https://arxiv.org/abs/2301.02111
-- HiFi-GAN: https://arxiv.org/abs/2010.05646
+## 5. Kết quả & So sánh
+
+### 5.1. So sánh Chất lượng (MOS - Mean Opinion Score)
+*   **Concatenative**: MOS ~3.0 - 3.5 (Nghe rõ tiếng máy).
+*   **Neural TTS (Tacotron 2)**: MOS ~4.0 - 4.2 (Gần giống người).
+*   **Generative TTS (VALL-E)**: MOS ~4.5 (Khó phân biệt với bản thu gốc).
+
+### 5.2. So sánh Tốc độ (Real-time Factor - RTF)
+*   **Tacotron 2**: RTF ~0.1 (Nhanh hơn thời gian thực 10 lần).
+*   **FastSpeech 2**: RTF ~0.01 (Cực nhanh, xử lý câu dài trong tíc tắc).
+*   **VALL-E**: RTF cao hơn do mô hình ngôn ngữ lớn, cần GPU mạnh.
+
+---
+
+## 6. Nhận xét
+
+### 6.1. Xu hướng Tương lai
+Ngành TTS đang chuyển dịch mạnh mẽ sang hướng **Zero-shot Learning**: Khả năng nói bất kỳ giọng nào, bất kỳ ngôn ngữ nào chỉ với một mẫu gợi ý (prompt) cực ngắn mà không cần huấn luyện lại.
+
+### 6.2. Đạo đức AI
+Sự phát triển của Voice Cloning đặt ra thách thức lớn về **Deepfake**. Các mô hình thế hệ mới cần đi kèm với công nghệ Watermarking (đánh dấu thủy vân) để phân biệt giọng máy và giọng thật.
+
+---
+
+## 7. Trích dẫn
+1.  **Tacotron 2** (Google, 2018) - Paper nền tảng của Neural TTS.
+2.  **FastSpeech 2** (Microsoft, 2020) - Chuẩn mực về tốc độ.
+3.  **VALL-E** (Microsoft, 2023) - Kỷ nguyên Audio LM.
+4.  **Hugging Face Audio Course**: https://huggingface.co/learn/audio-course

@@ -17,32 +17,375 @@ Tìm hiểu và ứng dụng **Mạng Nơ-ron Hồi quy (RNN/LSTM)** cho các b�
 
 ## 2. Nền tảng Lý thuyết
 
-### 2.1. Hạn chế của các mô hình truyền thống
-- **Bag-of-Words (TF-IDF)**: Bỏ qua thứ tự từ, coi câu như "túi" chứa các từ độc lập
-- **Word2Vec trung bình**: Mất thông tin ngữ cảnh khi lấy mean pooling
+### 2.1. Tại sao cần Sequential Models?
 
-**Ví dụ minh họa:**
-- "Sản phẩm này chất lượng tốt, **không hề tệ** chút nào."
-- "Sản phẩm này chất lượng **không hề tốt**, rất tệ."
+#### 2.1.1. Hạn chế của các mô hình truyền thống
 
-→ Hai câu có ý nghĩa trái ngược nhưng BoW cho vector tương tự!
+**Bag-of-Words (TF-IDF):**
+- Bỏ qua hoàn toàn thứ tự từ
+- Coi câu như "túi" chứa các từ độc lập
+- Không phân biệt được ngữ cảnh
 
-### 2.2. RNN (Recurrent Neural Network)
-- Xử lý dữ liệu tuần tự bằng cách duy trì **hidden state**
-- Hidden state hoạt động như "bộ nhớ" tích lũy thông tin từ các token trước
-- **Hạn chế**: Vanishing/Exploding Gradient với chuỗi dài
+**Word2Vec trung bình:**
+- Mất thông tin vị trí khi lấy mean pooling
+- Không capture được cấu trúc câu
 
-### 2.3. LSTM (Long Short-Term Memory)
-- Biến thể nâng cao của RNN với các **cổng (gates)**:
-  - **Forget gate**: Quyết định thông tin cần quên
-  - **Input gate**: Quyết định thông tin mới cần lưu
-  - **Output gate**: Quyết định output từ cell state
-- Giải quyết vấn đề vanishing gradient, học được phụ thuộc xa
+**Ví dụ minh họa vấn đề:**
+```
+Câu 1: "Sản phẩm này chất lượng tốt, không hề tệ chút nào."  → Positive
+Câu 2: "Sản phẩm này chất lượng không hề tốt, rất tệ."      → Negative
 
-### 2.4. Token Classification
-- **POS Tagging**: Gán nhãn từ loại (NOUN, VERB, ADJ, ...)
-- **NER**: Nhận dạng thực thể (B-PER, I-PER, B-LOC, O, ...)
-- Sử dụng định dạng **IOB** (Inside, Outside, Beginning)
+BoW vectors gần như giống nhau! (cùng các từ: tốt, tệ, không, chất lượng...)
+```
+
+#### 2.1.2. Dữ liệu tuần tự (Sequential Data)
+Nhiều loại dữ liệu có tính tuần tự, thứ tự quan trọng:
+- **Text**: Thứ tự từ quyết định nghĩa
+- **Time series**: Giá cổ phiếu, nhiệt độ
+- **Audio**: Tín hiệu âm thanh
+- **Video**: Chuỗi frames
+
+### 2.2. RNN (Recurrent Neural Network) - Chi tiết
+
+#### 2.2.1. Kiến trúc cơ bản
+
+```
+        ┌─────────────────────────────────────────────┐
+        │                                             │
+        ▼                                             │
+   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+   │  RNN    │───▶│  RNN    │───▶│  RNN    │───▶│  RNN    │
+   │  Cell   │    │  Cell   │    │  Cell   │    │  Cell   │
+   └─────────┘    └─────────┘    └─────────┘    └─────────┘
+        ▲              ▲              ▲              ▲
+        │              │              │              │
+       x₁             x₂             x₃             x₄
+      "The"         "cat"          "sat"          "down"
+```
+
+#### 2.2.2. Công thức Forward Pass
+
+Tại mỗi time step t:
+
+```
+hₜ = tanh(Wₓₕ × xₜ + Wₕₕ × hₜ₋₁ + bₕ)
+yₜ = Wₕᵧ × hₜ + bᵧ
+```
+
+Trong đó:
+- `xₜ ∈ ℝᵈ`: Input tại time step t (word embedding)
+- `hₜ ∈ ℝʰ`: Hidden state tại time step t
+- `hₜ₋₁ ∈ ℝʰ`: Hidden state từ time step trước
+- `Wₓₕ ∈ ℝʰˣᵈ`: Weight matrix input → hidden
+- `Wₕₕ ∈ ℝʰˣʰ`: Weight matrix hidden → hidden (recurrent)
+- `Wₕᵧ ∈ ℝᵒˣʰ`: Weight matrix hidden → output
+- `tanh`: Activation function, output ∈ (-1, 1)
+
+#### 2.2.3. Unrolling RNN qua thời gian
+
+```
+h₀ → [RNN] → h₁ → [RNN] → h₂ → [RNN] → h₃ → [RNN] → h₄
+       ↑           ↑           ↑           ↑
+       x₁          x₂          x₃          x₄
+```
+
+**Quan trọng:** Cùng một bộ weights (Wₓₕ, Wₕₕ, Wₕᵧ) được chia sẻ qua tất cả time steps!
+
+#### 2.2.4. Backpropagation Through Time (BPTT)
+
+Gradient được tính ngược qua thời gian:
+
+```
+∂L/∂W = Σₜ ∂Lₜ/∂W
+
+∂Lₜ/∂Wₕₕ = Σₖ₌₁ᵗ (∂Lₜ/∂hₜ × ∂hₜ/∂hₖ × ∂hₖ/∂Wₕₕ)
+```
+
+**Vấn đề:** `∂hₜ/∂hₖ` là tích của nhiều Jacobians → gradient có thể explode hoặc vanish!
+
+### 2.3. Vanishing/Exploding Gradient Problem
+
+#### 2.3.1. Giải thích toán học
+
+```
+∂hₜ/∂hₖ = Πᵢ₌ₖᵗ⁻¹ ∂hᵢ₊₁/∂hᵢ = Πᵢ₌ₖᵗ⁻¹ Wₕₕᵀ × diag(tanh'(hᵢ))
+```
+
+Với chuỗi dài (t-k lớn):
+- Nếu `||Wₕₕ|| < 1`: Gradient → 0 (vanishing)
+- Nếu `||Wₕₕ|| > 1`: Gradient → ∞ (exploding)
+
+#### 2.3.2. Hậu quả
+
+**Vanishing Gradient:**
+- Model không học được long-term dependencies
+- Chỉ "nhớ" được vài tokens gần nhất
+- Ví dụ: "The cat, which was sitting on the mat, **was** sleeping" - khó liên kết "cat" với "was"
+
+**Exploding Gradient:**
+- Weights update quá lớn, model không hội tụ
+- Loss = NaN
+
+#### 2.3.3. Giải pháp
+
+| Giải pháp | Mô tả |
+|-----------|-------|
+| Gradient Clipping | Giới hạn norm của gradient |
+| LSTM/GRU | Kiến trúc với gating mechanism |
+| Skip connections | Residual connections |
+| Proper initialization | Xavier/He initialization |
+
+### 2.4. LSTM (Long Short-Term Memory) - Chi tiết
+
+#### 2.4.1. Ý tưởng chính
+LSTM (Hochreiter & Schmidhuber, 1997) giải quyết vanishing gradient bằng:
+- **Cell state (Cₜ)**: "Highway" cho thông tin chảy qua không bị biến đổi nhiều
+- **Gates**: Kiểm soát thông tin nào được thêm/xóa/output
+
+#### 2.4.2. Kiến trúc LSTM Cell
+
+```
+                    ┌───────────────────────────────────────┐
+                    │              Cell State Cₜ            │
+    Cₜ₋₁ ──────────▶│ ──────×────────────+────────────────▶ │ ──────▶ Cₜ
+                    │       │            │                  │
+                    │    ┌──┴──┐      ┌──┴──┐               │
+                    │    │  fₜ │      │  iₜ │               │
+                    │    │Forget│      │Input│               │
+                    │    │ Gate│      │Gate │               │
+                    │    └──┬──┘      └──┬──┘               │
+                    │       │            │                  │
+    hₜ₋₁ ──────────▶│ ──────┴────────────┴──────────────── │
+                    │                    │                  │
+         xₜ ───────▶│                 ┌──┴──┐    ┌──┴──┐   │
+                    │                 │  C̃ₜ │    │  oₜ │   │
+                    │                 │Candi│    │Output│   │
+                    │                 │date │    │ Gate│   │
+                    │                 └──┬──┘    └──┬──┘   │
+                    │                    │          │      │
+                    │                    └────×─────┘      │
+                    │                         │            │
+                    │                        tanh          │
+                    │                         │            │
+                    └─────────────────────────┼────────────┘
+                                              ▼
+                                             hₜ
+```
+
+#### 2.4.3. Công thức LSTM
+
+**Forget Gate** - Quyết định thông tin cần quên từ cell state:
+```
+fₜ = σ(Wf × [hₜ₋₁, xₜ] + bf)
+```
+
+**Input Gate** - Quyết định thông tin mới cần lưu:
+```
+iₜ = σ(Wᵢ × [hₜ₋₁, xₜ] + bᵢ)
+C̃ₜ = tanh(Wc × [hₜ₋₁, xₜ] + bc)
+```
+
+**Cell State Update:**
+```
+Cₜ = fₜ ⊙ Cₜ₋₁ + iₜ ⊙ C̃ₜ
+```
+
+**Output Gate** - Quyết định output từ cell state:
+```
+oₜ = σ(Wₒ × [hₜ₋₁, xₜ] + bₒ)
+hₜ = oₜ ⊙ tanh(Cₜ)
+```
+
+Trong đó:
+- `σ`: Sigmoid function (output ∈ (0,1) - như "cổng")
+- `⊙`: Element-wise multiplication
+- `[hₜ₋₁, xₜ]`: Concatenation của hidden state và input
+
+#### 2.4.4. Tại sao LSTM giải quyết Vanishing Gradient?
+
+**Cell state highway:**
+```
+Cₜ = fₜ ⊙ Cₜ₋₁ + iₜ ⊙ C̃ₜ
+```
+
+- Khi `fₜ ≈ 1` và `iₜ ≈ 0`: `Cₜ ≈ Cₜ₋₁` (thông tin được giữ nguyên)
+- Gradient có thể chảy qua cell state mà không bị nhân với weight matrix
+- Tránh được tích của nhiều số < 1
+
+#### 2.4.5. Ví dụ hoạt động của Gates
+
+```
+Câu: "The cat, which was very cute, sat on the mat."
+
+Khi xử lý "sat":
+- Forget gate: Quên thông tin về "cute" (không liên quan đến hành động)
+- Input gate: Lưu thông tin "sat" là hành động chính
+- Output gate: Output hidden state để dự đoán từ tiếp theo
+
+Khi xử lý "mat":
+- Cell state vẫn giữ thông tin "cat" là subject (từ đầu câu)
+- Có thể liên kết "cat" với "sat" dù cách xa nhau
+```
+
+### 2.5. GRU (Gated Recurrent Unit)
+
+#### 2.5.1. Kiến trúc đơn giản hơn LSTM
+GRU (Cho et al., 2014) gộp forget và input gate thành **update gate**:
+
+```
+zₜ = σ(Wz × [hₜ₋₁, xₜ])           # Update gate
+rₜ = σ(Wr × [hₜ₋₁, xₜ])           # Reset gate
+h̃ₜ = tanh(W × [rₜ ⊙ hₜ₋₁, xₜ])   # Candidate
+hₜ = (1 - zₜ) ⊙ hₜ₋₁ + zₜ ⊙ h̃ₜ   # Final hidden state
+```
+
+#### 2.5.2. So sánh LSTM vs GRU
+
+| Tiêu chí | LSTM | GRU |
+|----------|------|-----|
+| Số gates | 3 (forget, input, output) | 2 (update, reset) |
+| Parameters | Nhiều hơn | Ít hơn (~25%) |
+| Training | Chậm hơn | Nhanh hơn |
+| Long sequences | Tốt hơn | Tương đương |
+| Small data | Kém hơn | Tốt hơn |
+
+### 2.6. Bidirectional RNN
+
+#### 2.6.1. Motivation
+RNN thông thường chỉ nhìn context từ trái sang phải. Nhưng nhiều tasks cần context cả hai chiều:
+
+```
+"I went to the bank to deposit money."  → bank = ngân hàng
+"I went to the bank to catch fish."     → bank = bờ sông
+
+Cần nhìn cả "deposit money" và "catch fish" để hiểu "bank"
+```
+
+#### 2.6.2. Kiến trúc
+
+```
+Forward:   h₁→ → h₂→ → h₃→ → h₄→
+              ↘    ↘    ↘    ↘
+Output:        y₁    y₂    y₃    y₄
+              ↗    ↗    ↗    ↗
+Backward:  h₁← ← h₂← ← h₃← ← h₄←
+```
+
+**Concatenation:**
+```
+hₜ = [h→ₜ ; h←ₜ]  (dimension = 2 × hidden_size)
+```
+
+#### 2.6.3. Khi nào dùng Bidirectional?
+
+| Task | Bidirectional? | Lý do |
+|------|----------------|-------|
+| Text Classification | Có thể | Cần hiểu toàn bộ câu |
+| POS Tagging | Nên dùng | Cần context cả hai chiều |
+| NER | Nên dùng | Entity phụ thuộc context |
+| Language Modeling | Không | Chỉ có past context |
+| Machine Translation | Encoder: Có, Decoder: Không | |
+
+### 2.7. Token Classification Tasks
+
+#### 2.7.1. POS Tagging (Part-of-Speech)
+
+Gán nhãn từ loại cho mỗi token:
+
+```
+Input:  "The   cat   sat   on   the   mat"
+Output: "DET   NOUN  VERB  ADP  DET   NOUN"
+```
+
+**Universal POS Tags (UPOS):**
+| Tag | Meaning | Example |
+|-----|---------|---------|
+| NOUN | Noun | cat, dog, house |
+| VERB | Verb | run, eat, is |
+| ADJ | Adjective | big, red, happy |
+| ADV | Adverb | quickly, very |
+| DET | Determiner | the, a, this |
+| ADP | Adposition | in, on, at |
+| PRON | Pronoun | I, you, he |
+| PROPN | Proper noun | John, Paris |
+
+#### 2.7.2. NER (Named Entity Recognition)
+
+Nhận dạng và phân loại entities:
+
+```
+Input:  "John   lives   in   New   York"
+Output: "B-PER  O       O    B-LOC I-LOC"
+```
+
+**IOB Format (Inside-Outside-Beginning):**
+- `B-XXX`: Beginning of entity type XXX
+- `I-XXX`: Inside (continuation) of entity type XXX
+- `O`: Outside any entity
+
+**Tại sao cần IOB?**
+```
+"New York City is in New York State"
+
+Không có IOB: "LOC LOC LOC O O LOC LOC LOC" - không biết đâu là entity riêng
+Có IOB: "B-LOC I-LOC I-LOC O O B-LOC I-LOC I-LOC" - rõ ràng 2 entities
+```
+
+#### 2.7.3. Kiến trúc cho Token Classification
+
+```
+Input tokens:  [x₁,    x₂,    x₃,    x₄]
+                ↓      ↓      ↓      ↓
+Embedding:     [e₁,    e₂,    e₃,    e₄]
+                ↓      ↓      ↓      ↓
+Bi-LSTM:       [h₁,    h₂,    h₃,    h₄]
+                ↓      ↓      ↓      ↓
+Linear:        [o₁,    o₂,    o₃,    o₄]
+                ↓      ↓      ↓      ↓
+Softmax:       [ŷ₁,    ŷ₂,    ŷ₃,    ŷ₄]
+```
+
+**Loss function:** Cross-entropy trên mỗi token
+```
+L = -1/T Σₜ Σₖ yₜₖ log(ŷₜₖ)
+```
+
+### 2.8. Padding và Batching cho Sequences
+
+#### 2.8.1. Vấn đề
+Các sequences có độ dài khác nhau, nhưng batch cần cùng shape:
+
+```
+Batch:
+- "I love NLP"        (3 tokens)
+- "Deep learning"     (2 tokens)
+- "Natural language"  (2 tokens)
+```
+
+#### 2.8.2. Padding
+Thêm token đặc biệt `<PAD>` để cùng độ dài:
+
+```
+- "I love NLP <PAD>"     (4 tokens)
+- "Deep learning <PAD> <PAD>"  (4 tokens)
+- "Natural language <PAD> <PAD>"  (4 tokens)
+```
+
+#### 2.8.3. Attention Mask
+Đánh dấu tokens thực vs padding:
+
+```
+Attention mask:
+- [1, 1, 1, 0]
+- [1, 1, 0, 0]
+- [1, 1, 0, 0]
+```
+
+**Trong loss calculation:**
+```python
+loss = CrossEntropyLoss(ignore_index=PAD_IDX)
+# Không tính loss trên padding tokens
+```
 
 ---
 

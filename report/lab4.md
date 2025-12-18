@@ -15,26 +15,314 @@ Xây dựng pipeline phân loại văn bản hoàn chỉnh, từ raw text đến
 
 ## 2. Nền tảng Lý thuyết
 
-### 2.1. Text Classification
-Text Classification là bài toán gán nhãn (categories/labels) cho văn bản. Ứng dụng phổ biến:
-- Sentiment Analysis (phân tích cảm xúc)
-- Spam Detection (phát hiện spam)
-- Topic Labeling (gán chủ đề)
+### 2.1. Text Classification - Tổng quan
 
-### 2.2. Pipeline
+#### 2.1.1. Định nghĩa hình thức
+Text Classification là bài toán học có giám sát (supervised learning):
+- **Input**: Document `d` (văn bản)
+- **Output**: Label `y ∈ {c₁, c₂, ..., cₖ}` (một trong k classes)
+- **Mục tiêu**: Học hàm `f: D → C` từ training data
+
+#### 2.1.2. Các loại Text Classification
+
+| Loại | Mô tả | Ví dụ |
+|------|-------|-------|
+| Binary | 2 classes | Spam vs Not Spam |
+| Multi-class | >2 classes, mỗi doc 1 label | Sentiment: Positive/Negative/Neutral |
+| Multi-label | Mỗi doc có thể nhiều labels | News: Politics + Economy + International |
+
+#### 2.1.3. Ứng dụng thực tế
+
+| Ứng dụng | Input | Output |
+|----------|-------|--------|
+| Sentiment Analysis | Review sản phẩm | Positive/Negative/Neutral |
+| Spam Detection | Email | Spam/Ham |
+| Intent Classification | User query | Intent (book_flight, weather, ...) |
+| Topic Labeling | News article | Category (Sports, Politics, ...) |
+| Language Detection | Text | Language (en, vi, fr, ...) |
+
+### 2.2. Pipeline Text Classification
+
 ```
-Raw Text → Tokenization → Vectorization → ML Model → Prediction
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────┐    ┌────────────┐
+│  Raw Text   │ →  │ Preprocessing│ →  │ Vectorization│ →  │ ML Model │ →  │ Prediction │
+└─────────────┘    └──────────────┘    └─────────────┘    └──────────┘    └────────────┘
+                         │                    │                 │
+                         ▼                    ▼                 ▼
+                   - Lowercase          - BoW/TF-IDF      - Naive Bayes
+                   - Remove noise       - Word2Vec        - Logistic Reg
+                   - Tokenization       - BERT            - SVM
+                   - Stopwords                            - Neural Networks
 ```
 
-### 2.3. Các Model sử dụng
-- **Logistic Regression**: Model tuyến tính đơn giản, hiệu quả cho phân loại nhị phân và đa lớp
-- **Multinomial Naive Bayes**: Model xác suất dựa trên định lý Bayes, phù hợp với dữ liệu text
+### 2.3. Logistic Regression - Chi tiết
 
-### 2.4. Evaluation Metrics
-- **Accuracy**: Tỷ lệ dự đoán đúng
-- **Precision**: Độ chính xác của các dự đoán positive
-- **Recall**: Khả năng tìm được tất cả positive samples
-- **F1-Score**: Trung bình điều hòa của Precision và Recall
+#### 2.3.1. Binary Logistic Regression
+
+**Mô hình:**
+```
+P(y=1|x) = σ(wᵀx + b) = 1 / (1 + e^(-(wᵀx + b)))
+```
+
+Trong đó:
+- `x ∈ ℝⁿ`: Feature vector (TF-IDF vector)
+- `w ∈ ℝⁿ`: Weight vector (learned)
+- `b ∈ ℝ`: Bias term
+- `σ(z)`: Sigmoid function
+
+**Sigmoid Function:**
+```
+σ(z) = 1 / (1 + e⁻ᶻ)
+
+Tính chất:
+- σ(z) ∈ (0, 1) ∀z
+- σ(0) = 0.5
+- σ(-z) = 1 - σ(z)
+```
+
+**Decision boundary:**
+```
+ŷ = 1  if P(y=1|x) ≥ 0.5  (tức wᵀx + b ≥ 0)
+ŷ = 0  otherwise
+```
+
+#### 2.3.2. Loss Function - Binary Cross-Entropy
+
+```
+L(w, b) = -1/m Σᵢ [yᵢ log(ŷᵢ) + (1-yᵢ) log(1-ŷᵢ)]
+```
+
+Trong đó:
+- `m`: Số training samples
+- `yᵢ`: True label (0 hoặc 1)
+- `ŷᵢ`: Predicted probability
+
+**Ý nghĩa:**
+- Khi `y=1`: Loss = `-log(ŷ)` → Muốn ŷ → 1
+- Khi `y=0`: Loss = `-log(1-ŷ)` → Muốn ŷ → 0
+
+#### 2.3.3. Multinomial Logistic Regression (Softmax)
+
+Mở rộng cho multi-class với K classes:
+
+**Softmax Function:**
+```
+P(y=k|x) = exp(wₖᵀx + bₖ) / Σⱼ exp(wⱼᵀx + bⱼ)
+```
+
+**Tính chất:**
+- Σₖ P(y=k|x) = 1 (tổng xác suất = 1)
+- P(y=k|x) > 0 ∀k
+
+**Cross-Entropy Loss (Multi-class):**
+```
+L = -1/m Σᵢ Σₖ yᵢₖ log(ŷᵢₖ)
+```
+
+Với one-hot encoding: `yᵢₖ = 1` nếu sample i thuộc class k, ngược lại = 0.
+
+#### 2.3.4. Regularization
+
+Để tránh overfitting, thêm regularization term:
+
+**L2 Regularization (Ridge):**
+```
+L_reg = L + λ ||w||² = L + λ Σⱼ wⱼ²
+```
+
+**L1 Regularization (Lasso):**
+```
+L_reg = L + λ ||w||₁ = L + λ Σⱼ |wⱼ|
+```
+
+| Regularization | Ưu điểm | Nhược điểm |
+|----------------|---------|------------|
+| L2 | Stable, smooth | Không sparse |
+| L1 | Feature selection (sparse) | Không stable |
+| Elastic Net | Kết hợp cả hai | Thêm hyperparameter |
+
+### 2.4. Naive Bayes - Chi tiết
+
+#### 2.4.1. Bayes' Theorem
+
+```
+P(c|d) = P(d|c) × P(c) / P(d)
+```
+
+Trong đó:
+- `P(c|d)`: Posterior - xác suất class c cho document d
+- `P(d|c)`: Likelihood - xác suất document d trong class c
+- `P(c)`: Prior - xác suất class c
+- `P(d)`: Evidence - xác suất document d
+
+#### 2.4.2. Naive Assumption
+
+**Giả định độc lập có điều kiện:**
+```
+P(d|c) = P(w₁, w₂, ..., wₙ|c) = Πᵢ P(wᵢ|c)
+```
+
+Các từ trong document độc lập với nhau khi biết class.
+
+**Tại sao "Naive"?**
+- Giả định này hiếm khi đúng trong thực tế
+- "New York" - "New" và "York" không độc lập
+- Nhưng vẫn hoạt động tốt trong practice!
+
+#### 2.4.3. Multinomial Naive Bayes
+
+Phù hợp với text data (word counts):
+
+**Classification rule:**
+```
+ĉ = argmax_c [log P(c) + Σᵢ count(wᵢ, d) × log P(wᵢ|c)]
+```
+
+**Ước lượng parameters:**
+```
+P(c) = Nᶜ / N                    (Prior)
+
+P(wᵢ|c) = (count(wᵢ, c) + α) / (Σⱼ count(wⱼ, c) + α|V|)  (Likelihood với Laplace smoothing)
+```
+
+Trong đó:
+- `Nᶜ`: Số documents trong class c
+- `N`: Tổng số documents
+- `count(wᵢ, c)`: Số lần từ wᵢ xuất hiện trong class c
+- `α`: Smoothing parameter (thường = 1)
+- `|V|`: Vocabulary size
+
+#### 2.4.4. Laplace Smoothing
+
+**Vấn đề:** Nếu từ wᵢ không xuất hiện trong class c → P(wᵢ|c) = 0 → P(d|c) = 0
+
+**Giải pháp:** Thêm α (pseudo-count) vào mỗi count:
+```
+P(wᵢ|c) = (count(wᵢ, c) + α) / (Σⱼ count(wⱼ, c) + α|V|)
+```
+
+Với α = 1: Laplace smoothing (add-one smoothing)
+
+#### 2.4.5. Ví dụ tính toán Naive Bayes
+
+```
+Training data:
+- "good movie" → Positive
+- "great film" → Positive  
+- "bad movie" → Negative
+- "terrible film" → Negative
+
+Test: "good film" → ?
+
+Vocabulary: {good, movie, great, film, bad, terrible}
+
+P(Pos) = 2/4 = 0.5
+P(Neg) = 2/4 = 0.5
+
+P(good|Pos) = (1+1)/(4+6) = 0.2
+P(film|Pos) = (1+1)/(4+6) = 0.2
+P(good|Neg) = (0+1)/(4+6) = 0.1
+P(film|Neg) = (1+1)/(4+6) = 0.2
+
+P(Pos|"good film") ∝ 0.5 × 0.2 × 0.2 = 0.02
+P(Neg|"good film") ∝ 0.5 × 0.1 × 0.2 = 0.01
+
+→ Predict: Positive (0.02 > 0.01)
+```
+
+### 2.5. Evaluation Metrics
+
+#### 2.5.1. Confusion Matrix
+
+```
+                    Predicted
+                 Pos      Neg
+Actual  Pos  [   TP   |   FN   ]
+        Neg  [   FP   |   TN   ]
+```
+
+- **TP (True Positive)**: Dự đoán Positive, thực tế Positive
+- **TN (True Negative)**: Dự đoán Negative, thực tế Negative
+- **FP (False Positive)**: Dự đoán Positive, thực tế Negative (Type I Error)
+- **FN (False Negative)**: Dự đoán Negative, thực tế Positive (Type II Error)
+
+#### 2.5.2. Các Metrics
+
+**Accuracy:**
+```
+Accuracy = (TP + TN) / (TP + TN + FP + FN)
+```
+Tỷ lệ dự đoán đúng. **Hạn chế:** Không phù hợp với imbalanced data.
+
+**Precision:**
+```
+Precision = TP / (TP + FP)
+```
+"Trong các dự đoán Positive, bao nhiêu % đúng?"
+Quan trọng khi **FP costly** (spam filter - không muốn đánh nhầm email quan trọng là spam)
+
+**Recall (Sensitivity):**
+```
+Recall = TP / (TP + FN)
+```
+"Trong các Positive thực tế, bao nhiêu % được tìm thấy?"
+Quan trọng khi **FN costly** (cancer detection - không muốn bỏ sót bệnh nhân)
+
+**F1-Score:**
+```
+F1 = 2 × (Precision × Recall) / (Precision + Recall)
+```
+Harmonic mean của Precision và Recall. Cân bằng giữa hai metrics.
+
+#### 2.5.3. Macro vs Micro vs Weighted Average
+
+Với multi-class classification:
+
+| Averaging | Công thức | Khi nào dùng |
+|-----------|-----------|--------------|
+| Macro | Trung bình các class metrics | Quan tâm đều các class |
+| Micro | Tính trên tổng TP, FP, FN | Class lớn quan trọng hơn |
+| Weighted | Weighted by class support | Imbalanced data |
+
+```
+Macro-F1 = (F1_class1 + F1_class2 + F1_class3) / 3
+Micro-F1 = 2×(Σ TPᵢ) / (2×Σ TPᵢ + Σ FPᵢ + Σ FNᵢ)
+```
+
+### 2.6. Xử lý Imbalanced Data
+
+#### 2.6.1. Vấn đề
+Khi một class chiếm đa số (ví dụ: 90% Neutral, 5% Positive, 5% Negative):
+- Model có xu hướng predict class đa số
+- Accuracy cao nhưng không hữu ích
+
+#### 2.6.2. Các giải pháp
+
+| Phương pháp | Mô tả |
+|-------------|-------|
+| **Oversampling** | Tăng samples của minority class (SMOTE) |
+| **Undersampling** | Giảm samples của majority class |
+| **Class weights** | Tăng weight cho minority class trong loss |
+| **Threshold tuning** | Điều chỉnh decision threshold |
+
+**Class weights trong Logistic Regression:**
+```python
+model = LogisticRegression(class_weight='balanced')
+# Tự động tính: weight_c = n_samples / (n_classes × n_samples_c)
+```
+
+### 2.7. So sánh Logistic Regression vs Naive Bayes
+
+| Tiêu chí | Logistic Regression | Naive Bayes |
+|----------|---------------------|-------------|
+| Loại model | Discriminative | Generative |
+| Học gì | P(y\|x) trực tiếp | P(x\|y) và P(y) |
+| Giả định | Linear decision boundary | Feature independence |
+| Training | Iterative (gradient descent) | Closed-form (counting) |
+| Tốc độ training | Chậm hơn | Rất nhanh |
+| Data ít | Kém hơn | Tốt hơn |
+| Data nhiều | Tốt hơn | Tương đương |
+| Correlated features | Xử lý được | Bị ảnh hưởng |
 
 ---
 
